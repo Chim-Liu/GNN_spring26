@@ -1,76 +1,55 @@
-# Semester Project: Privacy-Preserving Graph Neural Networks for Financial Fraud Detection
+# Semester Project: Encrypted MNIST Inference using Convolutional Neural Networks and Fully Homomorphic Encryption (FHE)
 
 ## Part 0: Project Overview
-
 **Student Name:** Yanchen Liu  
-**Course:** CSE 60868
+**Course:** 60868  
 
-This main idea is to explore the intersection of **Graph Neural Networks (GNN)** and **Fully Homomorphic Encryption (FHE)**. I'm going to build a machine learning pipeline that can classify nodes in a financial transaction network (e.g., identifying illicit actors) without ever decrypting the sensitive transaction data during the inference phase.
+This project explores Privacy-Preserving Machine Learning (PPML) by combining Convolutional Neural Networks (CNNs) with Fully Homomorphic Encryption (FHE). The primary objective is to build a machine learning pipeline capable of classifying handwritten digits (the MNIST dataset) directly on encrypted image data. This ensures that the server processing the image never sees the raw, plaintext pixels, offering a foundational blueprint for secure, cloud-based image recognition.
 
 ## Part 1: Problem Description
+As machine learning models increasingly move to cloud servers for inference, data privacy has become a critical concern. In fields like healthcare (medical imaging) or biometric security (facial recognition), clients cannot safely send unencrypted images to third-party servers due to privacy regulations and the risk of data breaches. 
 
-Financial institutions need to collaborate each other to detect sophisticated money laundering rings. These rings often form complex graph structures that traditional tabular machine learning misses. While **Graph Neural Networks (GNNs)** are excellent tools adopted to detect these patterns, banks cannot share raw transaction data due to privacy law, privacy concerns and competitive secrecy. 
+The core problem this project addresses is: **How can a remote server perform spatial feature extraction and classification on an image without ever decrypting the image itself?**
 
-So the core problem that this project should address is: **How can we utilize the topological power of GNNs on financial data while mathematically guaranteeing that the data remains encrypted during processing?**
-
-* **Proposed Input Data:** A graph where nodes represent accounts/transactions and edges represent money flows. Features include timestamps, amounts, and currency types.
-* **Desired Output:** A classification for each node (Illicit vs. Licit) generated on encrypted data.
+Fully Homomorphic Encryption (FHE) offers a mathematical solution by allowing computations to be performed directly on ciphertexts. However, FHE introduces severe constraints on the types of mathematical operations a neural network can perform. This project will serve as a classic PPML starter exercise, focusing on overcoming these constraints in a controlled environment using regular, grid-structured image data rather than highly complex, irregular graph structures.
 
 ## Part 2: Proposed High-Level Solution
+The proposed solution implements a secure Client-Server architecture utilizing a modified 2-layer Convolutional Neural Network.
 
-The proposed solution implements a **Privacy-Preserving Machine Learning (PPML)** workflow using FHE.
+### Phase 1: Plaintext Training and Cryptographic Adaptation
+Traditional neural networks rely heavily on non-linear activation functions like ReLU ($f(x) = \max(0, x)$) to learn complex patterns. However, FHE schemes generally only support basic addition and multiplication. Therefore, a standard CNN cannot be directly encrypted.
 
-### Architecture (possible)
+To solve this, I will first train a lightweight 2-layer CNN on plaintext data. During this architectural design phase, I will replace all non-FHE-friendly activation functions (like ReLU or Sigmoid) with low-order polynomial approximations. Specifically, I will use a simple square activation function ($f(x) = x^2$). Because squaring only requires multiplication, it is fully compatible with FHE circuits. 
 
-1. **Trusted Environment (Training):**
-    * A standard GNN model (likely a Graph Convolutional Network or GraphSAGE) is trained on *unencrypted* (plaintext) data to establish baseline weights and biases.
-    * *Self-Correction/Learning Goal:* Need to determine if standard activation functions (like ReLU) can be converted to polynomial approximations (like Square activation) effectively, as FHE struggles with non-polynomial operations.
+### Phase 2: Encrypted Inference Protocol
+Once the adapted CNN is trained and its weights are frozen, the inference pipeline will operate as follows:
+1.  **Encryption:** The client takes a 28x28 grayscale MNIST image, encrypts it using their private FHE key, and sends the resulting ciphertext to the server.
+2.  **Encrypted Computation:** The server loads the pre-trained, unencrypted model weights. It then performs the necessary convolutions, polynomial activations, and pooling operations entirely on the encrypted client data. The server processes this without knowing the contents of the image.
+3.  **Decryption:** The server returns an encrypted vector of logits (the predictions for digits 0-9) to the client. The client uses their private key to decrypt the vector and determine the final classification.
 
-2. **Compilation to FHE:**
-    * Using tools, for examples, **Concrete-ML** or **TenSEAL**, the trained PyTorch model is compiled into an FHE-compatible circuit. This involves updating the weights and replacing non-linear operations with cryptographic equivalents.
+## Part 3: Learning Goals and Technical Challenges
+Because it is early in the semester, I am focusing on what I need to learn to make this architecture viable:
 
-3. **Encrypted Inference:**
-    * **Encryption:** The client (simulated data owner) encrypts their node features and adjacency matrix using a secret key.
-    * **Computation:** The server (model host) runs the GNN operations (matrix multiplications, aggregations) on the *encrypted* data. The server shouldn't see the raw values.
-    * **Decryption:** The server returns the encrypted logits to the client, who uses their secret key to decrypt the final prediction.
+1.  **Understanding Polynomial Approximations:** I need to learn how replacing ReLU with a square function impacts the gradient descent process during training. Polynomials can cause exploding gradients, so I must research proper weight initialization and normalization techniques suited for square activations.
+2.  **FHE Frameworks:** I will need to learn how to bridge standard PyTorch models with cryptographic libraries. I plan to evaluate tools like **TenSEAL** or **Concrete-ML** to determine which offers the most efficient cryptographic inference for CNNs.
+3.  **Managing the Noise Budget:** Every multiplication operation in FHE introduces noise into the ciphertext. If the circuit is too deep, the noise overwhelms the data, making decryption impossible. I need to learn how to calculate and manage the "multiplicative depth" of my 2-layer CNN to ensure it successfully compiles without requiring computationally devastating "bootstrapping" techniques.
 
-### Key Features Needed to be Emphasized
+## Part 4: Datasets and Data Handling
+I will use the classic **MNIST Database of Handwritten Digits**. This dataset contains 70,000 grayscale images of digits (0-9), normalized to fit into a 28x28 pixel bounding box. MNIST is ideal because its regular grid structure simplifies the convolution process, allowing me to focus entirely on the cryptographic bottlenecks rather than complex computer vision problems.
 
-* **Topological Features:** Degree centrality and PageRank scores (calculated pre-encryption if possible, or approximated).
-* **Transaction Features:** Log-normalized transaction amounts.
-* **Polynomial Approximation:** Since FHE supports addition and multiplication but not comparison (needed for ReLU), it's necessary to learn how to implement polynomial replacements for activation functions during the training phase to ensure the model is "FHE-friendly" from the start.
+To ensure rigorous evaluation and prevent data leakage, the dataset will be partitioned into three strict subsets:
 
-## Part 3: Learning Goals & Technical Requirements
+1.  **Training Set (Plaintext):** This subset will be used to train the initial neural network. It will allow the model to learn the spatial features of the digits and optimize the trainable parameters (weights and biases) while using the modified square activation functions.
+2.  **Validation Set (Interim Tuning):** This subset is crucial for bridging the plaintext and encrypted worlds. After training the plaintext model, I will use the validation set to test the FHE compilation. I will evaluate how quantization (converting floating-point weights to integers for FHE) impacts the model. If the accuracy drops significantly during the simulated encryption phase, I will use this validation data to adjust the quantization bit-width and the scaling factors of the ciphertext.
+3.  **Test Set (The "Unknown" Data):** This subset will remain completely untouched until the final evaluation phase. Once the FHE pipeline is fully built, I will run this set through the *encrypted inference* protocol. This will provide the final metrics for my report.
 
-To solve this problem, I need to focus on learning the constraints of "Partial Homomorphic Encryption" versus "Fully Homomorphic Encryption."
+## Part 5: Evaluation Metrics
+The ultimate success of this project will be judged on three comparative metrics derived from the final Test Set:
+* **Plaintext Accuracy:** The baseline classification accuracy of the model without encryption.
+* **Encrypted Accuracy:** The classification accuracy of the model operating on FHE ciphertexts. A successful project will see little to no degradation between plaintext and encrypted accuracy.
+* **Inference Latency:** The time it takes for the server to process one encrypted image. I will measure this to demonstrate the computational overhead introduced by FHE compared to standard inference.
 
-1. **Crypto-ML Constraints:** I need to learn how to measure the "circuit depth" of a GNN. Deep GNNs (many layers) introduce too much noise in FHE, requiring expensive "bootstrapping." I will investigate if a shallow (2-layer) GNN is sufficient.
-2. **Sparse Matrix Operations in FHE:** Graph adjacency matrices are sparse. I need to determine if the FHE library supports sparse operations efficiently or if I need to use an embedding-based approach (like Node2Vec) before encryption.
-3. **Data quantization:** FHE works best with integers. I will need to learn how to modify the floating-point financial data without losing the precision necessary to detect fraud.
-
-## Part 4: Datasets
-
-I will use the **Elliptic Data Set**, a standard benchmark for graph-based fraud detection in Bitcoin.
-
-### Data Strategy
-
-As per the assignment guidelines, the data will be split strictly to prevent data leakage:
-
-1. **Training Set (60%):**
-    * Used to train the plaintext GNN model.
-    * Includes known "Illicit" (Class 1) and "Licit" (Class 2) nodes.
-    * Used to optimize weights (gradient descent) and tune polynomial activation functions.
-
-2. **Validation Set (20%):**
-    * Used to calibrate the **quantization parameters**.
-    * I will run this set through the FHE simulation to ensure the encrypted model's accuracy matches the plaintext model's accuracy. If the accuracy drops significantly, I will adjust the bit-width of the quantization.
-
-3. **Test Set (20%):**
-    * The "Unknown" subset.
-    * This data will be kept completely separate until the final report. It will be used to benchmark the *inference latency* (how long it takes to compute on encrypted data) and the final F1-score.
-
-## Part 5: Tools and Libraries (Possible)
-
-* **GNN Framework:** PyTorch Geometric (PyG).
-* **FHE Framework:** **Concrete-ML** (by Zama) or **TenSEAL** (OpenMined). Concrete-ML is likely the primary choice as it has built-in bindings for converting Torch models to FHE circuits.
-* **Visualization:** NetworkX for visualizing the small sub-graphs of the transaction network.
+## Part 6: Tools and Libraries
+* **Deep Learning Framework:** PyTorch or TensorFlow (for initial model creation).
+* **Cryptographic Framework:** TenSEAL (Microsoft SEAL wrapper) or Concrete-ML (Zama).
+* **Data Processing:** NumPy, TorchVision.
