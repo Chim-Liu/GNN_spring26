@@ -1,0 +1,16 @@
+# Core deep learning
+torch>=2.2.0
+torchvision>=0.17.0
+
+# Scientific computing
+numpy>=1.26.0
+Pillow>=10.0.0
+
+# FHE frameworks (install one or both as needed)
+# tenseal>=0.3.14         # Microsoft SEAL wrapper — manual FHE circuit control
+# concrete-ml>=1.5.0      # Zama auto-compilation — Linux/macOS (Docker on Windows)
+
+# Experiment utilities (optional but recommended)
+matplotlib>=3.8.0
+pandas>=2.2.0
+tqdm>=4.66.0

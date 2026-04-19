@@ -1,0 +1,48 @@
+
+============================================================
+Model: BaselineCNN (ReLU)
+============================================================
+  Training   accuracy : 99.61%  (44,824 / 45,000 correct)
+  Validation accuracy : 98.86%  (14,829 / 15,000 correct)
+
+  Per-class accuracy on validation set:
+    Digit 0: 98.85%
+    Digit 1: 99.35%
+    Digit 2: 98.79%
+    Digit 3: 98.84%
+    Digit 4: 98.83%
+    Digit 5: 99.09%
+    Digit 6: 99.32%
+    Digit 7: 98.93%
+    Digit 8: 98.40%
+    Digit 9: 98.17%
+
+  Macro Precision : 98.85%
+  Macro Recall    : 98.86%
+  Macro F1        : 98.85%
+
+  ECE (15 bins)   : 0.352%
+
+============================================================
+Model: SquareActCNN (x^2)
+============================================================
+  Training   accuracy : 99.97%  (44,988 / 45,000 correct)
+  Validation accuracy : 98.91%  (14,837 / 15,000 correct)
+
+  Per-class accuracy on validation set:
+    Digit 0: 98.78%
+    Digit 1: 99.29%
+    Digit 2: 98.59%
+    Digit 3: 99.22%
+    Digit 4: 98.76%
+    Digit 5: 99.02%
+    Digit 6: 99.32%
+    Digit 7: 99.31%
+    Digit 8: 98.53%
+    Digit 9: 98.24%
+
+  Macro Precision : 98.90%
+  Macro Recall    : 98.90%
+  Macro F1        : 98.90%
+
+  ECE (15 bins)   : 0.619%

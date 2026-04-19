@@ -1,0 +1,32 @@
+# Dataset files — large binary files, not tracked by git
+data/mnist/
+mnist/
+mnist.zip
+
+# Model checkpoints — generate via training scripts (see README Part 4)
+results/*.pt
+#samples/
+*.pt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.zip
+.venv/
+
+practise/
+*.pdf
+quiz*.jpg
+q5_2.png
