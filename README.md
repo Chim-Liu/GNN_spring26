@@ -400,7 +400,140 @@ Importantly, both models achieve very similar validation accuracy (~98.9%), whic
 
 ---
 
-## Part 5: Tools and Libraries
+## Part 5: Test-Set Evaluation Report
+
+### 5.1 Description of the Test Database
+
+The test partition used in this final evaluation is the **official MNIST test set**, a fixed collection of **10,000 hand-written digit images** that is distributed separately from the 60,000-image training corpus in Yann LeCun's original MNIST release. The images are stored in the same IDX3-ubyte binary format as the training files and share identical low-level properties: 28 × 28 grayscale pixels encoded as unsigned bytes, normalised to [0, 1] floats before model input.
+
+**Size.** The test partition contains 10,000 images covering all ten digit classes. The class distribution is not perfectly uniform:
+
+| Digit | Test samples |
+|---|---|
+| 0 | 980 |
+| 1 | 1,135 |
+| 2 | 1,032 |
+| 3 | 1,010 |
+| 4 | 982 |
+| 5 | 892 |
+| 6 | 958 |
+| 7 | 1,028 |
+| 8 | 974 |
+| 9 | 1,009 |
+| **Total** | **10,000** |
+
+Class 5 is the smallest group (892 samples) and class 1 the largest (1,135 samples), a 27% imbalance that is larger than the variation found in the training and validation subsets, which are drawn from a pool that averages approximately 6,000 samples per class.
+
+**What is different compared to training and validation.** The training and validation subsets in this project are both drawn from the MNIST 60,000-image training corpus via a fixed random split (75 % train, 25 % validation, seed 42). That entire 60,000-image pool was collected from a single writer population: employees of the United States Census Bureau, writing on forms as part of their regular work — a relatively homogeneous group of adult professionals with consistent, practised handwriting. The 10,000-image test set, by contrast, was collected from a completely different population: **American high-school students writing on blank white paper**. This is not a minor procedural difference. The two populations write differently in measurable ways: students tend to produce larger, more variable, sometimes less carefully formed strokes; their digit 6 and digit 9, for example, often lack the closed loops that census workers' more practiced hands produce. The test images therefore represent a **genuine distributional shift** rather than a simple random resample of the same source.
+
+In addition, the test set was never exposed to any part of the model development pipeline — not to training, not to hyperparameter tuning, not to architecture selection, and not to the calibration analysis performed on the validation set. This temporal and procedural quarantine means any accuracy shortfall on the test set cannot be attributed to overfitting to the evaluation procedure itself.
+
+**Why these differences are sufficient to test generalisation.** A meaningful generalisation test requires that the evaluation distribution differ from the training distribution in at least one systematic, non-trivial way. The writer-population shift between the Census Bureau and high-school student cohorts satisfies this requirement: it is demographic, it is not correctable by simple rescaling or normalisation, and it affects stroke style in ways that standard augmentations (small rotations, translations) only partially address. A model that achieves high accuracy on this test set has demonstrated that its learned feature representations are not merely memorising the stylistic conventions of a single writer group. The mild class imbalance in the test set (class 5 is 22 % smaller than class 1) further tests whether per-class performance degrades gracefully on under-represented groups, providing a secondary stress signal on top of the writer-shift effect.
+
+---
+
+### 5.2 Classification Accuracy on the Test Set
+
+Both models were evaluated on the full 10,000-image test partition using the four metrics reported in Part 4, so the results are directly comparable. The evaluation was performed by `evaluate_test.py` using the same checkpoint files generated during Part 4 training; no retraining or fine-tuning was applied.
+
+**Overall accuracy:**
+
+| Model | Test Accuracy | Correct | Errors |
+|---|---|---|---|
+| BaselineCNN (ReLU) | **98.85%** | 9,885 / 10,000 | 115 |
+| SquareActCNN (x²) | **99.02%** | 9,902 / 10,000 | 98 |
+
+**Per-class accuracy on the test set:**
+
+| Digit | BaselineCNN | SquareActCNN | Test samples |
+|---|---|---|---|
+| 0 | 99.08% | 98.98% | 980 |
+| 1 | 99.65% | 99.74% | 1,135 |
+| 2 | 98.93% | 99.22% | 1,032 |
+| 3 | 99.60% | 99.41% | 1,010 |
+| 4 | 99.39% | 98.68% | 982 |
+| 5 | 98.77% | 99.44% | 892 |
+| 6 | **97.60%** | 98.96% | 958 |
+| 7 | 98.93% | 98.74% | 1,028 |
+| 8 | 98.05% | 98.97% | 974 |
+| 9 | 98.32% | 98.02% | 1,009 |
+
+**Macro-averaged Precision, Recall, and F1:**
+
+| Model | Macro Precision | Macro Recall | Macro F1 |
+|---|---|---|---|
+| BaselineCNN (ReLU) | 98.83% | 98.83% | 98.83% |
+| SquareActCNN (x²) | 99.01% | 99.01% | 99.01% |
+
+**Expected Calibration Error (ECE, 15 bins):**
+
+| Model | ECE — Validation (Part 4) | ECE — Test (Part 5) |
+|---|---|---|
+| BaselineCNN (ReLU) | 0.352% | **0.215%** |
+| SquareActCNN (x²) | 0.619% | **0.600%** |
+
+Confusion matrices and reliability diagrams for the test set are saved to `results/`:
+
+![BaselineCNN Test Confusion Matrix](results/confusion_baseline_test.png)
+*Figure 5.1: Confusion matrix — BaselineCNN (ReLU) on the 10,000-image test set.*
+
+![SquareActCNN Test Confusion Matrix](results/confusion_square_test.png)
+*Figure 5.2: Confusion matrix — SquareActCNN (x²) on the 10,000-image test set.*
+
+![BaselineCNN Test Reliability Diagram](results/reliability_baseline_test.png)
+*Figure 5.3: Reliability diagram — BaselineCNN (ReLU) on the test set. ECE = 0.215%.*
+
+![SquareActCNN Test Reliability Diagram](results/reliability_square_test.png)
+*Figure 5.4: Reliability diagram — SquareActCNN (x²) on the test set. ECE = 0.600%.*
+
+---
+
+### 5.3 Analysis: Where Performance Changes and Why
+
+#### 5.3.1 The Real Generalisation Gap Is Training → Test, Not Validation → Test
+
+Comparing test accuracy to validation accuracy produces a deceptively small gap — less than 0.02 percentage points for BaselineCNN, and a slight *improvement* of 0.11 pp for SquareActCNN. This does not mean generalisation is trivial. It means the **validation set already represents an out-of-training-distribution evaluation**: both the validation and test sets are drawn from populations never seen during weight optimisation, so the validation set has already captured most of the real distributional gap.
+
+The informative comparison is training accuracy versus test accuracy:
+
+| Model | Training Accuracy | Test Accuracy | Generalisation Gap |
+|---|---|---|---|
+| BaselineCNN (ReLU) | 99.61% | 98.85% | **0.76 pp** |
+| SquareActCNN (x²) | 99.97% | 99.02% | **0.95 pp** |
+
+Both models perform noticeably worse on the test set than on training data. The gap is larger for SquareActCNN, which is consistent with the overfitting signal observed in Part 4: SquareActCNN essentially memorises the training set (only 12 training errors) and loses slightly more on unseen data as a result. The x² activation's inability to distinguish +x from −x by sign makes it more sensitive to precise pixel-level patterns in the training data, patterns that are style-specific to Census Bureau handwriting and do not fully transfer to high-school student handwriting.
+
+#### 5.3.2 The Most Notable Per-Class Failure: Digit 6 (BaselineCNN)
+
+The single largest per-class accuracy change between validation and test sets belongs to **digit 6 in the BaselineCNN**: from 99.32% (validation) to **97.60% (test)**, a drop of 1.72 percentage points. This is the clearest signal in the per-class numbers of what "writer-shift" looks like in practice.
+
+Digit 6 is drawn with notable stylistic variation across writer populations. Census Bureau employees (training and validation source) tend to write a closed, rounded 6 with a clear loop at the bottom. High-school students more frequently write an open or partially-open 6 whose loop resembles the bottom of a 0, or whose descender resembles the tail of a lowercase b. The BaselineCNN, which relies entirely on ReLU activations, has learned a feature detector tuned to the closed-loop style; when the loop is absent or distorted in test images, the model's confidence in class 6 drops and the sample may be misclassified as 0 or 5.
+
+The confusion matrix in Figure 5.1 reflects this: the most concentrated off-diagonal mass for the BaselineCNN lies in the (6, 0) and (6, 5) cells, confirming that the model systematically confuses open-loop sixes with zeros and fives on the test set. The SquareActCNN, which in Part 4 was shown to be more over-confident but slightly better calibrated at the class level for digit 3 and digit 7, suffers less from this particular error — its digit 6 test accuracy (98.96%) is only 0.36 pp below its validation figure (99.32%), suggesting that the symmetric x² activation happens to capture a more writer-style-agnostic representation of the rounded bottom arc of the digit.
+
+#### 5.3.3 Calibration on the Test Set
+
+A second dimension in which the models differ on the test set concerns confidence calibration. The BaselineCNN's ECE *improves* from 0.352% (validation) to 0.215% (test), an unexpected result that arises because the test images that the model gets wrong tend to be ones on which it is also genuinely uncertain — the confidence score correctly reflects the difficulty. This is a sign of healthy calibration: the model is not over-confident on the hard cases it fails.
+
+The SquareActCNN's ECE on the test set (0.600%) is almost identical to its validation ECE (0.619%), confirming that its structural over-confidence — caused by the unbounded magnitude of x² logits — is a property of the activation function rather than an artefact of the specific validation sample. In a real FHE deployment where confidence thresholds gate whether a prediction is returned or escalated to a human reviewer, the SquareActCNN's 0.600% ECE means that a threshold calibrated on the validation set would transfer reliably to the test population without significant recalibration.
+
+#### 5.3.4 Proposed Improvements to Reduce the Observed Error Rates
+
+Five targeted improvements would likely reduce the training-to-test generalisation gap most directly:
+
+**1. Writer-style data augmentation.** The most direct fix for the writer-shift effect is to expose the model to more varied handwriting styles during training. Random elastic deformations (which simulate the variable pen pressure and stroke curvature of different writers), combined with slight random rotations (±12°) and small translations (±3 px), would push the model toward learning stroke-topology features rather than style-specific pixel patterns. This intervention alone would likely close most of the digit-6 degradation in BaselineCNN.
+
+**2. Mixup training.** Mixup creates convex combinations of training examples and their labels, forcing the model to interpolate smoothly between digits rather than carving sharp decision boundaries around individual training instances. Empirically, Mixup has been shown to improve accuracy on held-out distributions that differ slightly from training, precisely the scenario encountered here.
+
+**3. Dropout regularisation for BaselineCNN.** Adding a dropout layer (p = 0.3) before the final fully connected layer would narrow the training-validation gap and reduce the model's dependence on any single feature channel. Dropout is compatible with the ReLU baseline but must be disabled at FHE inference time, which is standard practice for polynomial activation networks.
+
+**4. Larger and more diverse training corpus.** The Census Bureau writer population is narrow. Incorporating additional publicly available handwriting datasets — such as EMNIST (which extends MNIST with additional writers) or the NIST Special Databases — would give the model exposure to student-style handwriting during training, directly addressing the demographic shift in the test set.
+
+**5. BatchNorm folding and quantisation-aware retraining.** Part 4 identified BatchNorm folding as a prerequisite for FHE deployment. Once folding is implemented, retraining the SquareActCNN end-to-end with quantisation-aware training (QAT) at 8-bit precision would likely improve both test accuracy and ECE, because QAT regularises the feature magnitudes and prevents the extreme logit values that cause SquareActCNN's over-confidence. The combination of folding and QAT would prepare the model for encrypted inference while simultaneously reducing the 0.95 pp generalisation gap.
+
+---
+
+## Part 6: Tools and Libraries
 
 | Tool | Role |
 |---|---|

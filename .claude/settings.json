@@ -35,7 +35,14 @@
       "Bash(/d/Ph.D/course/gnn/.venv/Scripts/python.exe evaluate_full.py)",
       "Bash(/d/Ph.D/course/gnn/.venv/Scripts/python.exe predict_single.py)",
       "Bash(awk '/## Part 4/,/## Part 5/' README.md)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(python evaluate_test.py)",
+      "Bash(where python *)",
+      "Read(//c/ProgramData/miniconda3/**)",
+      "Bash(.venv/Scripts/python.exe -c \"import torch; print\\(torch.__version__\\)\")",
+      "Read(//d/Ph.D/course/gnn/.venv/Scripts//**)",
+      "Bash(\"/d/Ph.D/course/gnn/.venv/Scripts/python.exe\" -c \"import torch; print\\(torch.__version__\\); print\\('OK'\\)\")",
+      "Bash(\"/d/Ph.D/course/gnn/.venv/Scripts/python.exe\" evaluate_test.py)"
     ]
   }
 }
